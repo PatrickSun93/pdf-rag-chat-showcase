@@ -15,6 +15,39 @@ If the documents don't contain the answer, it says so instead of guessing.
 - Out-of-scope questions are refused, not hallucinated
 - Partly answerable questions: answers the covered part, states what's missing
 - Broken files are rejected; scanned PDFs without a text layer are flagged as not searchable
+- Click any citation to open the PDF at the cited page
+- Ingest cleans up real-world PDFs: skips tables of contents, reference lists and duplicate files (`handbook.pdf` + `handbook_FINAL.pdf`)
+
+## Tested on 1,000 pages of real documents
+
+The system was benchmarked on 12 long public documents with 48 hand-verified questions. Chunking and
+retrieval settings were changed one at a time, and each change was measured.
+
+**83% answer accuracy · 93% cite the right document · 8/8 unanswerable questions refused, with no invented facts**
+
+| Corpus | Documents | Pages | Answer accuracy |
+|---|---|---|---|
+| Employee handbooks | Indiana, Nevada, Tennessee state handbooks | 143 | 90% |
+| SEC 10-K filings | Apple, NVIDIA, Microsoft | 333 | 90% |
+| Clinical trial papers | PubMed Central Open Access (2 near-identical heart-failure trials + 1 PTSD trial) | 42 | 80% |
+| Novels | Project Gutenberg: Pride and Prejudice, Sherlock Holmes, Frankenstein | 476 | 70% |
+
+**When it's wrong, it's wrong safely:** none of the misses is a made-up answer. Each one is
+"not found" or a partial answer that says which part the documents don't cover.
+
+What was measured (answer accuracy over the 40 answerable questions):
+
+| Setting | Accuracy | Prompt tokens / question |
+|---|---|---|
+| 256-token chunks | 60% | ~1,100 |
+| 1024-token chunks | 65% | ~3,600 |
+| 512-token chunks | 73% | ~2,100 |
+| 512 + reference-list filtering | 75% | ~2,100 |
+| **512 + neighbouring-chunk expansion (default)** | **83%** | ~4,900 (< $0.001 / question) |
+
+Takeaways: mid-size chunks beat both small and large ones. The biggest single gain came from pulling in the
+chunks next to each hit, which fixes tables split across chunks and answers sitting just after the matched
+passage. That gain isn't just "more context": 1024-token chunks without expansion scored lower.
 
 ## Real example outputs
 
@@ -36,20 +69,21 @@ Sample corpus: 3 fictional company documents (employee handbook, travel policy, 
 ## How it works
 
 ```
-Ingest:  PDFs ─▶ text per page ─▶ chunks (page number kept) ─▶ embeddings ─▶ vector index
+Ingest:  PDFs ─▶ text per page ─▶ drop TOC / duplicate pages ─▶ 512-token chunks (page kept)
+                ─▶ drop reference lists ─▶ embeddings ─▶ vector index + BM25 keyword index
 
-Chat:    question ─▶ top-k chunks ─▶ grounded prompt ─▶ LLM
+Chat:    question ─▶ hybrid search (vector + BM25) ─▶ top-5 + neighbouring chunks ─▶ grounded prompt ─▶ LLM
                    ─▶ answer with [n] markers ─▶ only cited passages returned as sources
                    ─▶ no valid citation? → treated as ungrounded → refusal
 ```
 
 **Stack:** Python · FastAPI · LangChain · FAISS · OpenAI API (or any OpenAI-compatible model, e.g. DeepSeek; local embeddings via Ollama) · Streamlit
 
-**Engineering:** REST API with OpenAPI docs, pinned dependencies, offline unit tests (fake LLM + fake embeddings), config via `.env`.
+**Engineering:** REST API with OpenAPI docs, pinned dependencies, 20 offline unit tests (fake LLM + fake embeddings), config via `.env`, and a reusable benchmark harness (retrieval hit@k, LLM-judged answer accuracy, refusal checks) to tune on each client's own documents.
 
 ## Extensible to
 
-Qdrant / Pinecone / Supabase Vector · Next.js frontend · OCR for scanned PDFs · Slack / web-widget delivery · multi-turn conversation · hybrid search + reranking + retrieval evals
+Qdrant / Pinecone / Supabase Vector · Next.js frontend · OCR for scanned PDFs · Slack / web-widget delivery · multi-turn conversation · reranking
 (see also: [healthcare-agentic-rag](https://github.com/PatrickSun93/healthcare-agentic-rag) — hybrid retrieval, reranking, LangGraph agent, eval harness)
 
 ## Contact
