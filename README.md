@@ -5,7 +5,10 @@ If the documents don't contain the answer, it says so instead of guessing.
 
 > This repo is a showcase (screenshots + behaviour). The source code is private and available on request / as part of a project.
 
-![Chat demo](screenshots/demo.gif)
+![Demo: asking questions over Apple, NVIDIA and Microsoft 10-K filings](screenshots/demo.gif)
+
+*Live demo over the Apple, NVIDIA and Microsoft 10-K filings (~330 pages). The answer is cited to the exact
+page and table; the unit-sales question isn't in the filings, so it says so and invents no number.*
 
 ## What it does
 
@@ -62,9 +65,9 @@ Sample corpus: 3 fictional company documents (employee handbook, travel policy, 
 
 ## Screenshots
 
-| Chat with citations | Refusal on out-of-scope question |
+| Answer cited to the source table (Apple 10-K, p.31) | Question not covered by the documents → honest refusal |
 |---|---|
-| ![](screenshots/chat-citations.png) | ![](screenshots/refusal.png) |
+| ![Cited answer](screenshots/chat-citations.png) | ![Refusal](screenshots/refusal.png) |
 
 ## How it works
 
